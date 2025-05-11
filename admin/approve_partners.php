@@ -1,0 +1,3 @@
+<?php
+// Approve partners
+?>

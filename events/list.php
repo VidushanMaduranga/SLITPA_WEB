@@ -1,0 +1,3 @@
+<?php
+// List of events
+?>
