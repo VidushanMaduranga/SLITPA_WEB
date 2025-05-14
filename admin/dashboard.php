@@ -1,194 +1,109 @@
 <?php
 require_once '../config/config.php';
-session_start();
 
-// Redirect if not logged in as admin
-if (!isset($_SESSION['admin_logged_in'])) {
-    header('Location: login.php');
-    exit;
+// Check if admin is logged in
+if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
+    header("Location: login.php");
+    exit();
 }
 
-// Handle form submissions
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['add_event'])) {
-        // Add new event
-        $title = htmlspecialchars($_POST['title']);
-        $description = htmlspecialchars($_POST['description']);
-        $location = htmlspecialchars($_POST['location']);
-        $event_date = $_POST['event_date'];
-        $end_date = $_POST['end_date'] ?? $event_date;
-
-        try {
-            $stmt = $pdo->prepare("INSERT INTO events (title, description, location, event_date, end_date) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$title, $description, $location, $event_date, $end_date]);
-            $event_id = $pdo->lastInsertId();
-
-            // Handle file uploads
-            if (!empty($_FILES['media']['name'][0])) {
-                $uploadDir = '../assets/uploads/events/';
-                if (!file_exists($uploadDir)) {
-                    mkdir($uploadDir, 0755, true);
-                }
-
-                foreach ($_FILES['media']['name'] as $key => $name) {
-                    $tmpName = $_FILES['media']['tmp_name'][$key];
-                    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-                    $allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'mov'];
-                    
-                    if (in_array($ext, $allowedExts)) {
-                        $newName = uniqid() . '.' . $ext;
-                        $filePath = $uploadDir . $newName;
-
-                        if (move_uploaded_file($tmpName, $filePath)) {
-                            $media_type = (strpos($_FILES['media']['type'][$key], 'image') !== false) ? 'image' : 'video';
-                            $is_featured = ($key === 0) ? 1 : 0;
-
-                            $stmt = $pdo->prepare("INSERT INTO event_media (event_id, file_path, media_type, is_featured) VALUES (?, ?, ?, ?)");
-                            $stmt->execute([$event_id, $filePath, $media_type, $is_featured]);
-                        }
-                    }
-                }
-            }
-
-            $_SESSION['message'] = 'Event added successfully!';
-            header('Location: manage_events.php');
-            exit;
-        } catch (PDOException $e) {
-            $_SESSION['error'] = 'Error adding event: ' . $e->getMessage();
-        }
-    } 
-    elseif (isset($_POST['update_event'])) {
-        // Update existing event
-        $event_id = $_POST['event_id'];
-        $title = htmlspecialchars($_POST['title']);
-        $description = htmlspecialchars($_POST['description']);
-        $location = htmlspecialchars($_POST['location']);
-        $event_date = $_POST['event_date'];
-        $end_date = $_POST['end_date'] ?? $event_date;
-
-        try {
-            $stmt = $pdo->prepare("UPDATE events SET title = ?, description = ?, location = ?, event_date = ?, end_date = ? WHERE id = ?");
-            $stmt->execute([$title, $description, $location, $event_date, $end_date, $event_id]);
-
-            // Handle new file uploads
-            if (!empty($_FILES['media']['name'][0])) {
-                $uploadDir = '../assets/uploads/events/';
-                
-                foreach ($_FILES['media']['name'] as $key => $name) {
-                    $tmpName = $_FILES['media']['tmp_name'][$key];
-                    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-                    $allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'mov'];
-                    
-                    if (in_array($ext, $allowedExts)) {
-                        $newName = uniqid() . '.' . $ext;
-                        $filePath = $uploadDir . $newName;
-
-                        if (move_uploaded_file($tmpName, $filePath)) {
-                            $media_type = (strpos($_FILES['media']['type'][$key], 'image') !== false) ? 'image' : 'video';
-                            $is_featured = 0; // Don't override existing featured image
-
-                            $stmt = $pdo->prepare("INSERT INTO event_media (event_id, file_path, media_type, is_featured) VALUES (?, ?, ?, ?)");
-                            $stmt->execute([$event_id, $filePath, $media_type, $is_featured]);
-                        }
-                    }
-                }
-            }
-
-            $_SESSION['message'] = 'Event updated successfully!';
-            header('Location: manage_events.php');
-            exit;
-        } catch (PDOException $e) {
-            $_SESSION['error'] = 'Error updating event: ' . $e->getMessage();
-        }
-    } 
-    elseif (isset($_POST['delete_event'])) {
-        // Delete event
-        $event_id = $_POST['event_id'];
-        
-        try {
-            // First delete media files
-            $stmt = $pdo->prepare("SELECT file_path FROM event_media WHERE event_id = ?");
-            $stmt->execute([$event_id]);
-            $mediaFiles = $stmt->fetchAll();
-            
-            foreach ($mediaFiles as $file) {
-                if (file_exists($file['file_path'])) {
-                    unlink($file['file_path']);
-                }
-            }
-            
-            // Then delete the event
-            $stmt = $pdo->prepare("DELETE FROM events WHERE id = ?");
-            $stmt->execute([$event_id]);
-            
-            $_SESSION['message'] = 'Event deleted successfully!';
-            header('Location: manage_events.php');
-            exit;
-        } catch (PDOException $e) {
-            $_SESSION['error'] = 'Error deleting event: ' . $e->getMessage();
-        }
-    }
+$conn = get_db_connection();
+if (!$conn) {
+    die("Database connection failed");
 }
 
-// Get all events
-$events = $pdo->query("SELECT * FROM events ORDER BY event_date DESC")->fetchAll();
+// Get statistics
+$stats = [
+    'total_members' => 0,
+    'pending_members' => 0,
+    'active_members' => 0,
+    'total_partners' => 0,
+    'pending_partners' => 0,
+    'total_events' => 0,
+    'upcoming_events' => 0
+];
 
-// Get event details for editing
-$edit_event = null;
-$event_media = [];
-if (isset($_GET['edit'])) {
-    $event_id = $_GET['edit'];
-    $edit_event = $pdo->prepare("SELECT * FROM events WHERE id = ?");
-    $edit_event->execute([$event_id]);
-    $edit_event = $edit_event->fetch();
-    
-    $event_media = $pdo->prepare("SELECT * FROM event_media WHERE event_id = ? ORDER BY is_featured DESC");
-    $event_media->execute([$event_id]);
-    $event_media = $event_media->fetchAll();
+// Get member statistics
+$query = "SELECT 
+    COUNT(*) as total,
+    SUM(CASE WHEN u.status = 'pending' THEN 1 ELSE 0 END) as pending,
+    SUM(CASE WHEN u.status = 'active' THEN 1 ELSE 0 END) as active
+FROM members m
+JOIN users u ON m.user_id = u.id";
+$result = $conn->query($query);
+if ($row = $result->fetch_assoc()) {
+    $stats['total_members'] = $row['total'];
+    $stats['pending_members'] = $row['pending'];
+    $stats['active_members'] = $row['active'];
 }
+
+// Get partner statistics
+$query = "SELECT 
+    COUNT(*) as total,
+    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
+FROM partners";
+$result = $conn->query($query);
+if ($row = $result->fetch_assoc()) {
+    $stats['total_partners'] = $row['total'];
+    $stats['pending_partners'] = $row['pending'];
+}
+
+// Get event statistics
+$query = "SELECT 
+    COUNT(*) as total,
+    SUM(CASE WHEN event_date >= CURDATE() THEN 1 ELSE 0 END) as upcoming
+FROM events";
+$result = $conn->query($query);
+if ($row = $result->fetch_assoc()) {
+    $stats['total_events'] = $row['total'];
+    $stats['upcoming_events'] = $row['upcoming'];
+}
+
+// Get recent members
+$query = "SELECT m.*, u.email, u.status 
+FROM members m 
+JOIN users u ON m.user_id = u.id 
+ORDER BY m.id DESC LIMIT 5";
+$recent_members = $conn->query($query)->fetch_all(MYSQLI_ASSOC);
+
+// Get recent partners
+$query = "SELECT * FROM partners ORDER BY id DESC LIMIT 5";
+$recent_partners = $conn->query($query)->fetch_all(MYSQLI_ASSOC);
+
+$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Events - SLITPA Admin</title>
+    <title>Admin Dashboard - SLITPA</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
     <style>
-        .media-thumbnail {
-            width: 100px;
-            height: 100px;
-            object-fit: cover;
-            margin-right: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .featured-badge {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            padding: 2px 5px;
-            border-radius: 3px;
-            font-size: 12px;
-        }
-        .media-item {
-            position: relative;
-            display: inline-block;
-        }
-        .delete-media {
-            position: absolute;
-            bottom: 5px;
-            right: 5px;
-            background: rgba(255,0,0,0.7);
-            color: white;
+        .stat-card {
             border: none;
-            border-radius: 3px;
-            padding: 1px 5px;
-            cursor: pointer;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-icon {
+            font-size: 2.5rem;
+            opacity: 0.7;
+        }
+        .stat-number {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        .quick-link {
+            text-decoration: none;
+            color: inherit;
+        }
+        .quick-link:hover .stat-card {
+            background-color: #f8f9fa;
         }
     </style>
 </head>
@@ -197,151 +112,144 @@ if (isset($_GET['edit'])) {
     
     <div class="container py-5">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>Manage Events</h1>
-            <a href="dashboard.php" class="btn btn-secondary">Back to Dashboard</a>
+            <h1>Admin Dashboard</h1>
+            <div>
+                <a href="manage_members.php" class="btn btn-primary me-2">
+                    <i class="bi bi-person-plus"></i> Manage Members
+                </a>
+                <a href="manage_partners.php" class="btn btn-primary me-2">
+                    <i class="bi bi-building"></i> Manage Partners
+                </a>
+                <a href="manage_events.php" class="btn btn-primary">
+                    <i class="bi bi-calendar-event"></i> Manage Events
+                </a>
+            </div>
         </div>
         
-        <?php if (isset($_SESSION['message'])): ?>
-            <div class="alert alert-success"><?= $_SESSION['message'] ?></div>
-            <?php unset($_SESSION['message']); ?>
-        <?php endif; ?>
-        
-        <?php if (isset($_SESSION['error'])): ?>
-            <div class="alert alert-danger"><?= $_SESSION['error'] ?></div>
-            <?php unset($_SESSION['error']); ?>
-        <?php endif; ?>
-        
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card mb-4">
-                    <div class="card-header bg-primary text-white">
-                        <?= $edit_event ? 'Update Event' : 'Add New Event' ?>
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <a href="manage_members.php" class="quick-link">
+                    <div class="card stat-card mb-3">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-subtitle mb-2 text-muted">Total Members</h6>
+                                    <div class="stat-number"><?= $stats['total_members'] ?></div>
+                                </div>
+                                <div class="stat-icon text-primary">
+                                    <i class="bi bi-people"></i>
+                                </div>
+                            </div>
+                            <small class="text-warning"><?= $stats['pending_members'] ?> pending approval</small>
+                        </div>
                     </div>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="manage_partners.php" class="quick-link">
+                    <div class="card stat-card mb-3">
                     <div class="card-body">
-                        <form method="POST" enctype="multipart/form-data">
-                            <?php if ($edit_event): ?>
-                                <input type="hidden" name="event_id" value="<?= $edit_event['id'] ?>">
-                            <?php endif; ?>
-                            
-                            <div class="mb-3">
-                                <label for="title" class="form-label">Event Title</label>
-                                <input type="text" class="form-control" id="title" name="title" 
-                                    value="<?= $edit_event ? htmlspecialchars($edit_event['title']) : '' ?>" required>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="description" class="form-label">Description</label>
-                                <textarea class="form-control" id="description" name="description" rows="3" required><?= $edit_event ? htmlspecialchars($edit_event['description']) : '' ?></textarea>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="location" class="form-label">Location</label>
-                                <input type="text" class="form-control" id="location" name="location" 
-                                    value="<?= $edit_event ? htmlspecialchars($edit_event['location']) : '' ?>" required>
-                            </div>
-                            
-                            <div class="row mb-3">
-                                <div class="col-md-6">
-                                    <label for="event_date" class="form-label">Event Date</label>
-                                    <input type="date" class="form-control" id="event_date" name="event_date" 
-                                        value="<?= $edit_event ? $edit_event['event_date'] : '' ?>" required>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-subtitle mb-2 text-muted">Total Partners</h6>
+                                    <div class="stat-number"><?= $stats['total_partners'] ?></div>
                                 </div>
-                                <div class="col-md-6">
-                                    <label for="end_date" class="form-label">End Date (optional)</label>
-                                    <input type="date" class="form-control" id="end_date" name="end_date" 
-                                        value="<?= $edit_event ? $edit_event['end_date'] : '' ?>">
+                                <div class="stat-icon text-success">
+                                    <i class="bi bi-building"></i>
                                 </div>
                             </div>
-                            
-                            <div class="mb-3">
-                                <label for="media" class="form-label">Event Media (Images/Videos)</label>
-                                <input type="file" class="form-control" id="media" name="media[]" multiple <?= !$edit_event ? 'required' : '' ?>>
-                                <small class="text-muted">First file will be used as featured image. Allowed: JPG, PNG, GIF, MP4</small>
+                            <small class="text-warning"><?= $stats['pending_partners'] ?> pending approval</small>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="manage_events.php" class="quick-link">
+                    <div class="card stat-card mb-3">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-subtitle mb-2 text-muted">Total Events</h6>
+                                    <div class="stat-number"><?= $stats['total_events'] ?></div>
+                                </div>
+                                <div class="stat-icon text-info">
+                                    <i class="bi bi-calendar-event"></i>
+                                </div>
                             </div>
-                            
-                            <?php if ($edit_event): ?>
-                                <button type="submit" name="update_event" class="btn btn-primary">Update Event</button>
-                                <a href="manage_events.php" class="btn btn-secondary">Cancel</a>
-                            <?php else: ?>
-                                <button type="submit" name="add_event" class="btn btn-primary">Add Event</button>
-                            <?php endif; ?>
-                        </form>
+                            <small class="text-info"><?= $stats['upcoming_events'] ?> upcoming events</small>
+                        </div>
+                    </div>
+                </a>
+                            </div>
+            <div class="col-md-3">
+                <a href="manage_members.php" class="quick-link">
+                    <div class="card stat-card mb-3">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-subtitle mb-2 text-muted">Active Members</h6>
+                                    <div class="stat-number"><?= $stats['active_members'] ?></div>
+                                </div>
+                                <div class="stat-icon text-success">
+                                    <i class="bi bi-person-check"></i>
+                                </div>
+                            </div>
+                            </div>
+                    </div>
+                </a>
                     </div>
                 </div>
                 
-                <?php if ($edit_event && !empty($event_media)): ?>
+        <!-- Recent Activity -->
+        <div class="row">
+            <!-- Recent Members -->
+            <div class="col-md-6">
                 <div class="card">
-                    <div class="card-header bg-info text-white">
-                        Event Media
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Recent Members</h5>
                     </div>
                     <div class="card-body">
-                        <div class="d-flex flex-wrap">
-                            <?php foreach ($event_media as $media): ?>
-                                <div class="media-item">
-                                    <?php if ($media['media_type'] === 'image'): ?>
-                                        <img src="<?= $media['file_path'] ?>" class="media-thumbnail" alt="Event Media">
-                                    <?php else: ?>
-                                        <video class="media-thumbnail">
-                                            <source src="<?= $media['file_path'] ?>" type="video/mp4">
-                                        </video>
-                                    <?php endif; ?>
-                                    <?php if ($media['is_featured']): ?>
-                                        <span class="featured-badge">Featured</span>
-                                    <?php endif; ?>
-                                    <form method="POST" style="display:inline;">
-                                        <input type="hidden" name="media_id" value="<?= $media['id'] ?>">
-                                        <input type="hidden" name="file_path" value="<?= $media['file_path'] ?>">
-                                        <button type="submit" name="delete_media" class="delete-media" 
-                                            onclick="return confirm('Delete this media?')">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </form>
+                        <div class="list-group list-group-flush">
+                            <?php foreach ($recent_members as $member): ?>
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-0"><?= htmlspecialchars($member['full_name']) ?></h6>
+                                            <small class="text-muted"><?= htmlspecialchars($member['email']) ?></small>
+                                        </div>
+                                        <span class="badge bg-<?= $member['status'] === 'pending' ? 'warning' : 'success' ?>">
+                                            <?= ucfirst($member['status']) ?>
+                                        </span>
+                                    </div>
                                 </div>
                             <?php endforeach; ?>
                         </div>
                     </div>
                 </div>
-                <?php endif; ?>
             </div>
             
+            <!-- Recent Partners -->
             <div class="col-md-6">
                 <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        All Events
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Recent Partners</h5>
                     </div>
                     <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Title</th>
-                                        <th>Date</th>
-                                        <th>Location</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($events as $event): ?>
-                                        <tr>
-                                            <td><?= htmlspecialchars($event['title']) ?></td>
-                                            <td><?= date('M j, Y', strtotime($event['event_date'])) ?></td>
-                                            <td><?= htmlspecialchars($event['location']) ?></td>
-                                            <td>
-                                                <a href="manage_events.php?edit=<?= $event['id'] ?>" class="btn btn-sm btn-warning">
-                                                    <i class="bi bi-pencil"></i>
-                                                </a>
-                                                <form method="POST" style="display:inline;">
-                                                    <input type="hidden" name="event_id" value="<?= $event['id'] ?>">
-                                                    <button type="submit" name="delete_event" class="btn btn-sm btn-danger" 
-                                                        onclick="return confirm('Are you sure you want to delete this event?')">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </form>
-                                            </td>
-                                        </tr>
+                        <div class="list-group list-group-flush">
+                            <?php foreach ($recent_partners as $partner): ?>
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-0"><?= htmlspecialchars($partner['company_name']) ?></h6>
+                                            <small class="text-muted"><?= ucfirst($partner['partner_type']) ?> Partner</small>
+                                        </div>
+                                        <span class="badge bg-<?= $partner['status'] === 'pending' ? 'warning' : 'success' ?>">
+                                            <?= ucfirst($partner['status']) ?>
+                                        </span>
+                                    </div>
+                                </div>
                                     <?php endforeach; ?>
-                                </tbody>
-                            </table>
                         </div>
                     </div>
                 </div>
@@ -350,49 +258,5 @@ if (isset($_GET['edit'])) {
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Preview image before upload
-        document.getElementById('media').addEventListener('change', function(e) {
-            const files = e.target.files;
-            const previewContainer = document.getElementById('media-preview');
-            
-            if (previewContainer) {
-                previewContainer.innerHTML = '';
-                
-                for (let i = 0; i < files.length; i++) {
-                    const file = files[i];
-                    const reader = new FileReader();
-                    
-                    reader.onload = function(e) {
-                        const div = document.createElement('div');
-                        div.className = 'media-item';
-                        div.style.display = 'inline-block';
-                        div.style.marginRight = '10px';
-                        
-                        if (file.type.startsWith('image/')) {
-                            const img = document.createElement('img');
-                            img.src = e.target.result;
-                            img.style.width = '100px';
-                            img.style.height = '100px';
-                            img.style.objectFit = 'cover';
-                            div.appendChild(img);
-                        } else if (file.type.startsWith('video/')) {
-                            const video = document.createElement('video');
-                            video.src = e.target.result;
-                            video.controls = true;
-                            video.style.width = '100px';
-                            video.style.height = '100px';
-                            video.style.objectFit = 'cover';
-                            div.appendChild(video);
-                        }
-                        
-                        previewContainer.appendChild(div);
-                    }
-                    
-                    reader.readAsDataURL(file);
-                }
-            }
-        });
-    </script>
 </body>
 </html>

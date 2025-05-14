@@ -166,8 +166,9 @@ if (isset($_POST['add_event'])) {
                             //  to the database.
                             $media_type = strpos($file_type, 'image') === 0 ? 'image' : 'video'; // Determine media type
                             $is_featured = $featured ? 1 : 0;  //  Set featured flag
+                            $file_path = 'uploads/events/' . $new_file_name;
                             $stmt_media = $conn->prepare("INSERT INTO event_media (event_id, file_path, media_type, is_featured) VALUES (?, ?, ?, ?)");
-                            $stmt_media->bind_param("issi", $event_id, 'uploads/events/' . $new_file_name, $media_type, $is_featured);
+                            $stmt_media->bind_param("issi", $event_id, $file_path, $media_type, $is_featured);
                             $stmt_media->execute();
                             $stmt_media->close();
                             $featured = false; //  Only the first file is featured.
@@ -234,8 +235,9 @@ if (isset($_POST['update_event'])) {
                         if (move_uploaded_file($file_tmp, $destination)) {
                             $media_type = strpos($file_type, 'image') === 0 ? 'image' : 'video';
                             $is_featured = $featured ? 1 : 0;
+                            $file_path = 'uploads/events/' . $new_file_name;
                             $stmt_media = $conn->prepare("INSERT INTO event_media (event_id, file_path, media_type, is_featured) VALUES (?, ?, ?, ?)");
-                            $stmt_media->bind_param("issi", $event_id, 'uploads/events/' . $new_file_name, $media_type, $is_featured);
+                            $stmt_media->bind_param("issi", $event_id, $file_path, $media_type, $is_featured);
                             $stmt_media->execute();
                             $stmt_media->close();
                             $featured = false;

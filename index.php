@@ -1,63 +1,51 @@
 <?php
-
-// Enable error reporting
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
-// Load configuration
-require_once __DIR__ . '/config/config.php';
-
-// Verify connection
-if (!isset($pdo)) {
-    die("Database connection not initialized");
-}
-
+/**
+ * SLITPA Website Homepage
+ * Main landing page displaying events, member counts, and partner information
+ */
 
 // Enable error reporting for debugging
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Use absolute path for config
+// Load database configuration
 require_once __DIR__ . '/config/config.php';
 
-// Get current date
+// Verify database connection
+if (!isset($pdo)) {
+    die("Database connection not initialized");
+}
+
+// Get current date for event filtering
 $current_date = date('Y-m-d');
 
 try {
-    // Get the current featured event (next upcoming event)
-    $featured_event = $pdo->prepare("
-        SELECT e.*, em.file_path as featured_image 
+    // Fetch upcoming events with their associated media
+    $stmt = $pdo->prepare("
+        SELECT e.*, GROUP_CONCAT(em.file_path, ':', em.media_type) as media_files 
         FROM events e
-        LEFT JOIN event_media em ON e.id = em.event_id AND em.is_featured = 1
-        WHERE e.end_date >= ? 
-        ORDER BY e.event_date ASC
-        LIMIT 1
-    ");
-    $featured_event->execute([$current_date]);
-    $featured_event = $featured_event->fetch();
-
-    // Get all media for featured event if exists
-    $featured_media = [];
-    if ($featured_event) {
-        $stmt = $pdo->prepare("SELECT * FROM event_media WHERE event_id = ? ORDER BY is_featured DESC");
-        $stmt->execute([$featured_event['id']]);
-        $featured_media = $stmt->fetchAll();
-    }
-
-    // Get other upcoming events (excluding the featured one)
-    $other_events = $pdo->prepare("
-        SELECT e.*, em.file_path as featured_image 
-        FROM events e
-        LEFT JOIN event_media em ON e.id = em.event_id AND em.is_featured = 1
-        WHERE e.end_date >= ? AND e.id != ?
+        LEFT JOIN event_media em ON e.id = em.event_id
+        WHERE e.event_date >= ?
+        GROUP BY e.id
         ORDER BY e.event_date ASC
         LIMIT 3
     ");
-    $other_events->execute([$current_date, $featured_event ? $featured_event['id'] : 0]);
-    $other_events = $other_events->fetchAll();
-    
+    $stmt->execute([$current_date]);
+    $upcoming_events = $stmt->fetchAll();
+
+    // Get total member count
+    $stmt = $pdo->query("SELECT COUNT(*) as count FROM members");
+    $member_count = $stmt->fetch()['count'];
+
+    // Get active partner count
+    $stmt = $pdo->query("SELECT COUNT(*) as count FROM partners WHERE status = 'active'");
+    $partner_count = $stmt->fetch()['count'];
+
 } catch (PDOException $e) {
-    die("Database error: " . $e->getMessage());
+    error_log("Database error: " . $e->getMessage());
+    $upcoming_events = [];
+    $member_count = 0;
+    $partner_count = 0;
 }
 ?>
 
@@ -66,103 +54,82 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SLITPA Portal</title>
+    <title>SLITPA - Sri Lankan IT Professionals Association</title>
+    <!-- Include Bootstrap CSS for responsive design -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/style.css">
+    <!-- Include custom styles -->
+    <link rel="stylesheet" href="assets/css/style.css">
 </head>
 
 <body>
-    <!-- Header Section -->
-    <?php include __DIR__ . '/includes/header.php'; ?>
+    <!-- Header Section with Navigation -->
+    <?php include 'includes/header.php'; ?>
 
-    <!-- Hero Section -->
+    <!-- Hero Section: Main banner with welcome message -->
     <section class="hero-section">
         <div class="hero">
+            <!-- Hero Background Image -->
             <div class="hero-image-wrap">
-                <img src="<?= BASE_URL ?>/assets/images/hero.png" alt="SLITPA Hero Image" class="hero-image">
+                <img src="assets/images/hero.jpg" alt="SLITPA Hero Image" class="hero-image">
             </div>
+            <!-- Hero Content Overlay -->
             <div class="hero-text-wrap">
-                <h1 class="hero-title">Become a Member Today!</h1>
-                <h3 class="hero-sub-title">EMPOWERING SRI LANKAN IT PROFESSIONALS IN THE UAE</h3>
-                <a href="<?= BASE_URL ?>/member/register.php">
-                    <button class="apply-member">Apply Now</button>
-                </a>
+                <h1 class="hero-title">Welcome to SLITPA</h1>
+                <h3 class="hero-sub-title">Sri Lankan IT Professionals Association - UAE</h3>
+                <a href="register.php" class="apply-member">Become a Member</a>
             </div>
         </div>
     </section>
 
-    <!-- Next Events Section -->
-    <?php if ($featured_event): ?>
-    <section class="event-first-section">
-        <div class="event-first">
-            <div class="row g-0">
-                <div class="col-12 col-md-6 col-lg-6">
-                    <div class="event-first-text-wrap">
-                        <h1 class="event-first-title"><?= htmlspecialchars($featured_event['title']) ?></h1>
-                        <h3 class="event-first-sub-title">
-                            <?= htmlspecialchars($featured_event['location']) ?>
-                        </h3>
-                        <p class="event-paragraph">
-                            <?= htmlspecialchars($featured_event['description']) ?>
-                        </p>
-                        <div class="button-wrap">
-                            <a href="<?= BASE_URL ?>/events/event_details.php?id=<?= $featured_event['id'] ?>">
-                                <img src="<?= BASE_URL ?>/assets/images/arrow-right.png" alt="View Event">
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-12 col-md-6 col-lg-6">
-                    <?php if (!empty($featured_media)): ?>
-                    <div id="eventCarousel" class="carousel slide" data-bs-ride="carousel">
-                        <div class="carousel-inner">
-                            <?php foreach ($featured_media as $index => $media): ?>
-                            <div class="carousel-item <?= $index === 0 ? 'active' : '' ?>">
-                                <?php if ($media['media_type'] === 'image'): ?>
-                                    <img src="<?= htmlspecialchars($media['file_path']) ?>" class="d-block w-100" alt="Event Media">
-                                <?php else: ?>
-                                    <video controls class="d-block w-100">
-                                        <source src="<?= htmlspecialchars($media['file_path']) ?>" type="video/mp4">
-                                        Your browser does not support the video tag.
-                                    </video>
-                                <?php endif; ?>
+    <!-- Events Section: Display upcoming events -->
+    <?php if (!empty($upcoming_events)): ?>
+    <section class="third-section">
+        <div class="container third-section-wrap">
+            <div class="row g-4">
+                <?php foreach ($upcoming_events as $event): ?>
+                <div class="col-12 col-md-4">
+                    <div class="session-wrap">
+                        <div class="session">
+                            <div class="row g-0">
+                                <div class="col-12">
+                                    <!-- Event Media Display -->
+                                    <?php
+                                    if (!empty($event['media_files'])) {
+                                        $media_array = explode(',', $event['media_files']);
+                                        // Display first image if available
+                                        foreach ($media_array as $media) {
+                                            list($path, $type) = explode(':', $media);
+                                            if ($type === 'image') {
+                                                echo '<img src="' . htmlspecialchars($path) . '" class="img-fluid mb-3" alt="Event Image">';
+                                                break;
+                                            }
+                                        }
+                                        
+                                        // Display first video if available
+                                        foreach ($media_array as $media) {
+                                            list($path, $type) = explode(':', $media);
+                                            if ($type === 'video') {
+                                                echo '<video class="img-fluid mb-3" controls>
+                                                        <source src="' . htmlspecialchars($path) . '" type="video/mp4">
+                                                        Your browser does not support the video tag.
+                                                      </video>';
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    ?>
+                                    <!-- Event Information -->
+                                    <div class="session-text-wrap">
+                                        <h1 class="session-title"><?= htmlspecialchars($event['title']) ?></h1>
+                                        <h3 class="session-sub-title"><?= htmlspecialchars($event['description']) ?></h3>
+                                        <p class="session-date"><?= date('d M Y', strtotime($event['event_date'])) ?></p>
+                                        <p class="location"><?= htmlspecialchars($event['location']) ?></p>
+                                        <a href="events/details.php?id=<?= $event['id'] ?>">
+                                            <button class="more">More Details</button>
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
-                            <?php endforeach; ?>
-                        </div>
-                        <?php if (count($featured_media) > 1): ?>
-                        <button class="carousel-control-prev" type="button" data-bs-target="#eventCarousel" data-bs-slide="prev">
-                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                            <span class="visually-hidden">Previous</span>
-                        </button>
-                        <button class="carousel-control-next" type="button" data-bs-target="#eventCarousel" data-bs-slide="next">
-                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                            <span class="visually-hidden">Next</span>
-                        </button>
-                        <?php endif; ?>
-                    </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
-    </section>
-    <?php endif; ?>
-
-    <!-- Other Events Section -->
-    <?php if (!empty($other_events)): ?>
-    <section class="event-second-section">
-        <div class="container">
-            <div class="row">
-                <?php foreach ($other_events as $event): ?>
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100">
-                        <?php if ($event['featured_image']): ?>
-                            <img src="<?= htmlspecialchars($event['featured_image']) ?>" class="card-img-top" alt="<?= htmlspecialchars($event['title']) ?>">
-                        <?php endif; ?>
-                        <div class="card-body">
-                            <h5 class="card-title"><?= htmlspecialchars($event['title']) ?></h5>
-                            <p class="card-text"><?= htmlspecialchars($event['location']) ?></p>
-                            <p class="card-text"><small class="text-muted"><?= date('M j, Y', strtotime($event['event_date'])) ?></small></p>
-                            <a href="<?= BASE_URL ?>/events/event_details.php?id=<?= $event['id'] ?>" class="btn btn-primary">View Details</a>
                         </div>
                     </div>
                 </div>
@@ -170,388 +137,59 @@ try {
             </div>
         </div>
     </section>
-      <?php endif; ?>
+    <?php endif; ?>
 
-
-    <!-- third section -->
+    <!-- Statistics Section: Display member and partner counts -->
     <section class="third-section">
-        <div class=" container third-section-wrap">
-            <div class="row g-4">
-                <div class="col-12 col-md-4 col-lg-4">
-                    <div class="session-wrap">
-                        <div class="session">
-                            <div class="row g-0">
-                                <div class="col-6">
-                                    <div class="session-text-wrap">
-                                        <h1 class="session-title">CPD Sessions</h1>
-                                        <h3 class="session-sub-title">VALUE-CENTRIC CAPABILITIES OF GENERATIVE
-                                            ORGANIZATIONS</h3>
-                                        <p class="organizer">By Ms. Janani Liyanage</p>
-                                        <p class="session-date">25th Nov 2025</p>
-                                        <a href="#">
-                                            <button class="more">More Details</button>
-                                        </a>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div id="cpdCarousel" class="carousel slide" data-bs-ride="carousel">
-                                        <div class="carousel-inner">
-                                            <div class="carousel-item active">
-                                                <img src="./assets/images/event.jpg" class="d-block w-100"
-                                                    alt="Event 1">
-                                            </div>
-                                            <div class="carousel-item">
-                                                <img src="./assets/images/event.jpg" class="d-block w-100"
-                                                    alt="Event 2">
-                                            </div>
-                                            <div class="carousel-item">
-                                                <img src="./assets/images/event.jpg" class="d-block w-100"
-                                                    alt="Event 3">
-                                            </div>
-                                        </div>
-                                        <button class="carousel-control-prev d-none" type="button"
-                                            data-bs-target="#cpdCarousel" data-bs-slide="prev">
-                                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                            <span class="visually-hidden">Previous</span>
-                                        </button>
-                                        <button class="carousel-control-next d-none" type="button"
-                                            data-bs-target="#cpdCarousel" data-bs-slide="next">
-                                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                            <span class="visually-hidden">Next</span>
-                                        </button>
-                                    </div>
-
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
+        <div class="container third-section-wrap">
+            <div class="row">
+                <!-- Member Count Display -->
+                <div class="col-md-6">
                     <div class="member-section-wrap">
                         <div class="member-section">
-                            <div class="row g-0">
-                                <div class="col-8">
-                                    <div class="member-text-wrap">
-                                        <div class="member-icon">
-                                            <img src="./assets/images/member.png" alt="">
-                                        </div>
-                                        <div class="member-text">
-                                            <h3 class="title">Member</h3>
-                                            <p class="member-date">25th nov 2025</p>
-                                        </div>
-                                    </div>
+                            <div class="member-text-wrap">
+                                <div class="member-icon">
+                                    <img src="assets/images/member-icon.png" alt="Members">
                                 </div>
-                                <div class="col-4">
-                                    <div class="member-count">
-                                        <h3 class="count-num">320</h3>
-                                    </div>
-
+                                <div class="member-text">
+                                    <h2 class="title">Total Members</h2>
+                                    <p class="member-date">As of <?= date('M Y') ?></p>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-12 col-md-4 col-lg-4">
-                    <div class="session-wrap">
-                        <div class="session">
-                            <div class="row g-0">
-                                <div class="col-6">
-                                    <div class="session-text-wrap">
-                                        <h1 class="session-title">PARTNERS</h1>
-                                        <h3 class="session-sub-title">TECHDEAL</h3>
-                                        <p class="part-session-paragraph">BUY LATEST LAPTOPS AT BEST PRICING</p>
-                                        <p class="contact">Contact : 055 111 1111</p>
-                                        <a href="#">
-                                            <button class="more">More Details</button>
-                                        </a>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div id="partCarousel" class="carousel slide" data-bs-ride="carousel">
-                                        <div class="carousel-inner">
-                                            <div class="carousel-item active">
-                                                <img src="./assets/images/event.jpg" class="d-block w-100"
-                                                    alt="Event 1">
-                                            </div>
-                                            <div class="carousel-item">
-                                                <img src="./assets/images/event.jpg" class="d-block w-100"
-                                                    alt="Event 2">
-                                            </div>
-                                            <div class="carousel-item">
-                                                <img src="./assets/images/event.jpg" class="d-block w-100"
-                                                    alt="Event 3">
-                                            </div>
-                                        </div>
-                                        <button class="carousel-control-prev d-none" type="button"
-                                            data-bs-target="#partCarousel" data-bs-slide="prev">
-                                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                            <span class="visually-hidden">Previous</span>
-                                        </button>
-                                        <button class="carousel-control-next d-none" type="button"
-                                            data-bs-target="#partCarousel" data-bs-slide="next">
-                                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                            <span class="visually-hidden">Next</span>
-                                        </button>
-                                    </div>
-
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- partner-logo section -->
-                    <div class="partner-section-wrap">
-                        <div class="partner-section">
-                            <div class="row g-0">
-                                <div class="col-6">
-                                    <div class="partner-text-wrap">
-                                        <div class="partner-text">
-                                            <h3 class="title">Platinum</h3>
-                                            <p class="partner">Partner</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="partner-logo">
-                                        <div class="logo-icon">
-                                            <img class="" src="./assets/images/SLITPA2-logo.png" alt="">
-                                        </div>
-                                    </div>
-
-                                </div>
+                            <div class="member-count">
+                                <div class="count-num"><?= $member_count ?></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- event section -->
-                <div class="col-12 col-md-4 col-lg-4">
-                    <div class="session-wrap">
-                        <div class="session">
-                            <div class="row g-0">
-                                <div class="col-6">
-                                    <div class="session-text-wrap">
-                                        <h1 class="session-title">EVENTS</h1>
-                                        <h3 class="session-sub-title">FAMILY DESERT NIGHT</h3>
-                                        <p class="even-date">25th Nov 2025</p>
-                                        <p class="location">Dubai UAE</p>
-                                        <a href="#">
-                                            <button class="more">more details</button>
-                                        </a>
-                                    </div>
+                <!-- Partner Count Display -->
+                <div class="col-md-6">
+                    <div class="member-section-wrap">
+                        <div class="member-section">
+                            <div class="member-text-wrap">
+                                <div class="member-icon">
+                                    <img src="assets/images/partner-icon.png" alt="Partners">
                                 </div>
-                                <div class="col-6">
-                                    <div id="evenCarousel" class="carousel slide" data-bs-ride="carousel">
-                                        <div class="carousel-inner">
-                                            <div class="carousel-item active">
-                                                <img src="./assets/images/event.jpg" class="d-block w-100"
-                                                    alt="Event 1">
-                                            </div>
-                                            <div class="carousel-item">
-                                                <img src="./assets/images/event.jpg" class="d-block w-100"
-                                                    alt="Event 2">
-                                            </div>
-                                            <div class="carousel-item">
-                                                <img src="./assets/images/event.jpg" class="d-block w-100"
-                                                    alt="Event 3">
-                                            </div>
-                                        </div>
-                                        <button class="carousel-control-prev d-none" type="button"
-                                            data-bs-target="#evenCarousel" data-bs-slide="prev">
-                                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                            <span class="visually-hidden">Previous</span>
-                                        </button>
-                                        <button class="carousel-control-next d-none" type="button"
-                                            data-bs-target="#evenCarousel" data-bs-slide="next">
-                                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                            <span class="visually-hidden">Next</span>
-                                        </button>
-                                    </div>
-
+                                <div class="member-text">
+                                    <h2 class="title">Active Partners</h2>
+                                    <p class="member-date">Corporate Partners</p>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <!-- Upcomming Event Section -->
-                        <div class="u-event-section-wrap">
-                            <div class="u-event-section">
-                                <div class="row g-0">
-                                    <div class="col-6">
-                                        <div class="u-event-text-wrap">
-                                            <div class="u-event-text">
-                                                <h3 class="title">Upcomming Events</h3>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="u-event-name-wrap">
-                                            <h3 class="event-name">Event Name</h3>
-                                            <p class="event-date">25th nov 2025</p>
-                                        </div>
-
-                                    </div>
-                                </div>
+                            <div class="member-count">
+                                <div class="count-num"><?= $partner_count ?></div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <!-- <div class="fourth-section">
-
-                <div class="row g-4">
-                    <div class="col-12 col-md-4 col-lg-4">
-                    </div>
-                    <div class="col-12 col-md-4 col-lg-4">
-                        <div class="session-wrap">
-                            <div class="session">
-                                <div class="row g-0">
-                                    <div class="col-6">
-                                        <div class="session-text-wrap">
-                                            <h1 class="session-title">PARTNERS</h1>
-                                            <h3 class="session-sub-title">TECHDEAL</h3>
-                                            <p class="part-session-paragraph">BUY LATEST LAPTOPS AT BEST PRICING</p>
-                                            <p class="contact">Contact : 055 111 1111</p>
-                                            <a href="#">
-                                                <button class="more">More Details</button>
-                                            </a>
-                                        </div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div id="partCarousel" class="carousel slide" data-bs-ride="carousel">
-                                            <div class="carousel-inner">
-                                                <div class="carousel-item active">
-                                                    <img src="./assets/images/event.jpg" class="d-block w-100"
-                                                        alt="Event 1">
-                                                </div>
-                                                <div class="carousel-item">
-                                                    <img src="./assets/images/event.jpg" class="d-block w-100"
-                                                        alt="Event 2">
-                                                </div>
-                                                <div class="carousel-item">
-                                                    <img src="./assets/images/event.jpg" class="d-block w-100"
-                                                        alt="Event 3">
-                                                </div>
-                                            </div>
-                                            <button class="carousel-control-prev d-none" type="button"
-                                                data-bs-target="#partCarousel" data-bs-slide="prev">
-                                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                                <span class="visually-hidden">Previous</span>
-                                            </button>
-                                            <button class="carousel-control-next d-none" type="button"
-                                                data-bs-target="#partCarousel" data-bs-slide="next">
-                                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                                <span class="visually-hidden">Next</span>
-                                            </button>
-                                        </div>
-
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-4 col-lg-4">
-                        <div class="session-wrap">
-                            <div class="session">
-                                <div class="row g-0">
-                                    <div class="col-6">
-                                        <div class="session-text-wrap">
-                                            <h1 class="session-title">EVENTS</h1>
-                                            <h3 class="session-sub-title">FAMILY DESERT NIGHT</h3>
-                                            <p class="even-date">25th Nov 2025</p>
-                                            <p class="location">Dubai UAE</p>
-                                            <a href="#">
-                                                <button class="more">more details</button>
-                                            </a>
-                                        </div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div id="evenCarousel" class="carousel slide" data-bs-ride="carousel">
-                                            <div class="carousel-inner">
-                                                <div class="carousel-item active">
-                                                    <img src="./assets/images/event.jpg" class="d-block w-100"
-                                                        alt="Event 1">
-                                                </div>
-                                                <div class="carousel-item">
-                                                    <img src="./assets/images/event.jpg" class="d-block w-100"
-                                                        alt="Event 2">
-                                                </div>
-                                                <div class="carousel-item">
-                                                    <img src="./assets/images/event.jpg" class="d-block w-100"
-                                                        alt="Event 3">
-                                                </div>
-                                            </div>
-                                            <button class="carousel-control-prev d-none" type="button"
-                                                data-bs-target="#evenCarousel" data-bs-slide="prev">
-                                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                                                <span class="visually-hidden">Previous</span>
-                                            </button>
-                                            <button class="carousel-control-next d-none" type="button"
-                                                data-bs-target="#evenCarousel" data-bs-slide="next">
-                                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                                                <span class="visually-hidden">Next</span>
-                                            </button>
-                                        </div>
-
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div> -->
         </div>
-
     </section>
 
-    <!-- <section class="hero bg-light text-center py-5">
-    <div class="container">
-      <h1 class="display-4">Welcome to the SLITPA Portal</h1>
-      <p class="lead">Manage members, partners, and events all in one place.</p>
-      <a href="member/register.php" class="btn btn-primary btn-lg me-2">Register as Member</a>
-      <a href="partner/register.php" class="btn btn-outline-secondary btn-lg">Register as Partner</a>
-    </div>
-  </section>
+    <!-- Footer Section -->
+    <?php include 'includes/footer.php'; ?>
 
-  <section class="features py-5">
-    <div class="container">
-      <div class="row text-center">
-        <div class="col-md-4 mb-4">
-          <div class="card h-100 shadow-sm">
-            <div class="card-body">
-              <h5 class="card-title">Member Management</h5>
-              <p class="card-text">Register and manage your account, track approval status, and more.</p>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-4 mb-4">
-          <div class="card h-100 shadow-sm">
-            <div class="card-body">
-              <h5 class="card-title">Partner Area</h5>
-              <p class="card-text">Register as a partner, get approved and share posts with the community.</p>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-4 mb-4">
-          <div class="card h-100 shadow-sm">
-            <div class="card-body">
-              <h5 class="card-title">CPD Sessions & Events</h5>
-              <p class="card-text">Stay updated with the latest events and professional development opportunities.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section> -->
-
-
-    <img class="img-fluid" src="./assets\images\footer-line.png" alt="">
-
-    <footer class="bg-dark text-white text-center py-2">
-        <p class="mb-0">&copy; <?php echo date("Y"); ?> SLITPA. All rights reserved.</p>
-    </footer>
-
+    <!-- Include Bootstrap JS for interactive components -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/scripts.js"></script> <!-- Optional -->
 </body>
-
 </html>
