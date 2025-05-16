@@ -1,41 +1,57 @@
 <?php
-require_once '../config/config.php';
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+require_once __DIR__ . '/../config/config.php';
 
 // Check if already logged in
-if (isset($_SESSION['user_id']) && $_SESSION['user_type'] === 'admin') {
+if (isset($_SESSION['user_id']) && isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin') {
     header("Location: dashboard.php");
     exit();
 }
 
-$error = '';
+$login_error = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = sanitize_input($_POST['email']);
+if (isset($_POST['login'])) {
+    $email = filter_input(INPUT_POST, 'username', FILTER_SANITIZE_EMAIL);
     $password = $_POST['password'];
 
-    $conn = get_db_connection();
-    if ($conn) {
-        // Modified query to use plain text password comparison
-        $stmt = $conn->prepare("SELECT id FROM users WHERE email = ? AND password = ? AND user_type = 'admin'");
-        $stmt->bind_param("ss", $email, $password);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if ($result->num_rows === 1) {
-            $user = $result->fetch_assoc();
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['email'] = $email;
-            $_SESSION['user_type'] = 'admin';
-            
-            header("Location: dashboard.php");
-            exit();
-        }
-        
-        $error = 'Invalid email or password';
-        $stmt->close();
-        $conn->close();
+    if (empty($email) || empty($password)) {
+        $login_error = "Email and password are required.";
     } else {
-        $error = 'Database connection failed';
+        try {
+            // Check user credentials using prepared statement
+            $stmt = $pdo->prepare("SELECT id, username, email, password, user_type FROM users WHERE (email = ? OR username = ?) AND user_type = 'admin' AND status = 'active'");
+            $stmt->execute([$email, $email]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($user && password_verify($password, $user['password'])) {
+                // Update last login time
+                $update_stmt = $pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
+                $update_stmt->execute([$user['id']]);
+
+                // Set session variables
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['user_type'] = $user['user_type'];
+                
+                // Regenerate session ID for security
+                session_regenerate_id(true);
+                
+                // Redirect to dashboard
+                header("Location: dashboard.php");
+                exit();
+            } else {
+                // Add delay to prevent brute force attacks
+                sleep(1);
+                $login_error = "Invalid email or password.";
+            }
+        } catch (PDOException $e) {
+            error_log("Login error: " . $e->getMessage());
+            $login_error = "An error occurred during login. Please try again.";
+        }
     }
 }
 ?>
@@ -48,6 +64,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../assets/css/style.css">
     <style>
+        body {
+            background-color: #f8f9fa;
+        }
         .login-container {
             max-width: 400px;
             margin: 100px auto;
@@ -68,6 +87,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             width: 100%;
             padding: 12px;
             font-size: 16px;
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
+        .btn-primary:hover {
+            background-color: #0b5ed7;
+            border-color: #0b5ed7;
+        }
+        .form-control {
+            padding: 12px;
+            font-size: 16px;
+        }
+        .alert {
+            margin-bottom: 20px;
         }
     </style>
 </head>
@@ -79,22 +111,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <h4 class="mb-0">SLITPA Admin Login</h4>
                 </div>
                 <div class="card-body p-4">
-                    <?php if ($error): ?>
-                        <div class="alert alert-danger"><?= $error ?></div>
+                    <?php if ($login_error): ?>
+                        <div class="alert alert-danger"><?= htmlspecialchars($login_error) ?></div>
                     <?php endif; ?>
 
-                    <form method="POST">
+                    <form method="POST" action="">
                         <div class="mb-3">
-                            <label for="email" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="email" name="email" required>
+                            <label for="username" class="form-label">Email or Username</label>
+                            <input type="text" class="form-control" id="username" name="username" 
+                                   value="<?= htmlspecialchars($email ?? '') ?>" required 
+                                   placeholder="Enter your email or username">
                         </div>
 
                         <div class="mb-3">
                             <label for="password" class="form-label">Password</label>
-                            <input type="password" class="form-control" id="password" name="password" required>
+                            <input type="password" class="form-control" id="password" name="password" 
+                                   required placeholder="Enter your password">
                         </div>
 
-                        <button type="submit" class="btn btn-primary">Login</button>
+                        <button type="submit" name="login" class="btn btn-primary">Login</button>
                     </form>
                 </div>
             </div>

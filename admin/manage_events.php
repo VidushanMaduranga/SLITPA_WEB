@@ -212,8 +212,35 @@ if (isset($_POST['update_event'])) {
     if (empty($title) || empty($description) || empty($location) || empty($event_date)) {
         $_SESSION['error'] = "All fields are required.";
     } else {
-        $stmt = $conn->prepare("UPDATE events SET title = ?, description = ?, location = ?, event_date = ?, end_date = ? WHERE id = ?");
-        $stmt->bind_param("sssssi", $title, $description, $location, $event_date, $end_date, $event_id);
+        // Generate slug from title
+        $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title)));
+        $slug = preg_replace('/-+/', '-', $slug);
+        $slug = trim($slug, '-');
+        
+        if (empty($slug)) {
+            $slug = 'event-' . time(); // Fallback if slug is empty
+        }
+        
+        // Check for duplicate slugs
+        $original_slug = $slug;
+        $counter = 1;
+        
+        do {
+            if ($counter > 1) {
+                $slug = $original_slug . '-' . $counter;
+            }
+            
+            $check_slug = $conn->prepare("SELECT COUNT(*) as count FROM events WHERE slug = ? AND id != ?");
+            $check_slug->bind_param("si", $slug, $event_id);
+            $check_slug->execute();
+            $result = $check_slug->get_result();
+            $count = $result->fetch_assoc()['count'];
+            $counter++;
+        } while ($count > 0);
+
+        // Now update the event with the unique slug
+        $stmt = $conn->prepare("UPDATE events SET title = ?, slug = ?, description = ?, location = ?, event_date = ?, end_date = ? WHERE id = ?");
+        $stmt->bind_param("ssssssi", $title, $slug, $description, $location, $event_date, $end_date, $event_id);
         if ($stmt->execute()) {
              if (!empty($_FILES['media']['name'][0])) {
                 $uploadDir = '../uploads/events/';
