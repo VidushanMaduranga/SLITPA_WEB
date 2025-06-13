@@ -1,0 +1,252 @@
+/* Base styles (desktop first) */
+body {
+    background-color: #fcfcfc;
+    font-family: Arial, sans-serif;
+    font-family: 'Montserrat', Arial, sans-serif;
+}
+
+/* Header Section */
+.header-section {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+    background-color: #00000041;
+    box-shadow: 0 2px 5px #0000001a;
+}
+
+.navbar {
+    background-color: transparent;
+    color: #ffffff;
+    padding: 10px;
+}
+
+.navbar-brand,
+.nav-link,
+.navbar-text {
+    color: #ffffff !important;
+}
+
+.nav-link:hover {
+    color: #cccccc !important;
+}
+
+/* Hero Section */
+.hero-section {
+    width: 100%;
+}
+
+.hero {
+    position: relative;
+    width: 100%;
+    margin: 0 auto;
+    overflow: hidden;
+    box-shadow: 0 4px 24px #0002;
+    display: flex;
+    align-items: stretch;
+}
+
+.hero-image-wrap {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    overflow: hidden;
+}
+
+.hero-image {
+    width: 100%;
+    height: 40vh;
+    object-fit: cover;
+    display: block;
+    filter: brightness(0.7) blur(0px);
+}
+
+.hero-text-wrap {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 40vh;
+    padding: 40px 20px;
+    text-align: center;
+    width: 100%;
+}
+
+.hero-title {
+    color: #fff;
+    font-size: 3rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+    text-shadow: 0 2px 16px #000a;
+    margin: 0;
+}
+
+/* First Content */
+.first-content-section {
+    padding: 40px 0 20px 0; 
+}
+.first-content-section .paragraph {
+    font-size: 24px;
+    line-height: 1.6;
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+}
+.first-content-section .paragraph span {
+    font-weight: bold;
+}
+
+/* Second Section */
+.second-content-section {
+    padding: 0 20px;
+    background-color: #f8f9fa;
+}
+.second-content-section img {
+    width: 100%;
+    height: auto;
+}
+
+/* Vision Section */
+.vision-section {
+    padding-top: 40px;
+    background-color: #ffffff;
+}
+.vision-title {
+    font-size: 60px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #0089FF;
+}
+.vision-paragraph {
+    font-size: 24px;
+    color: #696969;
+    line-height: 1.6;
+}
+
+/* Mission Section */
+.mission-section {
+    padding-top: 40px;
+    background-color: #ffffff;
+}
+.mission-title {
+    font-size: 60px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #0089FF;
+}
+.mission-paragraph {
+    font-size: 24px;
+    color: #696969;
+    line-height: 1.6;
+}
+
+/* Objectives Section */
+.objectives-section {
+    padding: 40px 0px;
+    background-color: #f8f9fa;
+}
+.objectives-title {
+    font-size: 60px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    color: #0089FF;
+}
+.objectives-list {
+    list-style-type: none;
+    padding: 20px 0;
+}
+.objectives-list h3 {
+    font-size: 36px;
+    color: #696969;
+    font-weight: 600;
+}
+.objectives-list p {
+    font-size: 24px;
+    color: #696969;
+    line-height: 1.6;
+    margin-bottom: 20px;
+    font-style: italic;
+    font-weight: 600;
+}
+.objectives-list li {
+    font-size: 24px;
+    color: #696969;
+    margin-bottom: 10px;
+}
+
+/* Responsive styles */
+
+/* Large devices (desktops, 1200px and down) */
+@media (max-width: 1200px) {
+    .vision-title,
+    .mission-title,
+    .objectives-title {
+        font-size: 48px;
+    }
+    .objectives-list h3 {
+        font-size: 30px;
+    }
+}
+
+/* Medium devices (tablets, 992px and down) */
+@media (max-width: 992px) {
+    .hero-title {
+        font-size: 2.2rem;
+    }
+    .vision-title,
+    .mission-title,
+    .objectives-title {
+        font-size: 36px;
+    }
+    .objectives-list h3 {
+        font-size: 24px;
+    }
+    .objectives-list p,
+    .objectives-list li,
+    .vision-paragraph,
+    .mission-paragraph,
+    .first-content-section .paragraph {
+        font-size: 18px;
+    }
+}
+
+/* Small devices (landscape phones, 768px and down) */
+@media (max-width: 768px) {
+    .first-content-section {
+        padding: 10px;
+    }
+    .hero-title {
+        font-size: 1.5rem;
+    }
+    .hero-image,
+    .hero-text-wrap {
+        height: 30vh;
+    }
+}
+
+/* Extra small devices (phones, 576px and down) */
+@media (max-width: 576px) {
+    .hero-title {
+        font-size: 1.1rem;
+    }
+    .vision-title,
+    .mission-title,
+    .objectives-title {
+        font-size: 24px;
+    }
+    .objectives-list h3 {
+        font-size: 18px;
+    }
+    .objectives-list p,
+    .objectives-list li,
+    .vision-paragraph,
+    .mission-paragraph,
+    .first-content-section .paragraph {
+        font-size: 14px;
+    }
+}

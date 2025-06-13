@@ -1,0 +1,125 @@
+/* Modal Body */
+#partnerModal .modal-content {
+    border-radius: 18px;
+    box-shadow: 0 8px 32px rgba(44,62,80,0.18);
+    background: #fff;
+    border: none;
+    padding: 0;
+}
+
+#partnerModal .modal-header {
+    border-bottom: none;
+    border-radius: 18px 18px 0 0;
+    background: linear-gradient(90deg, #0261e0 0%, #3a8dde 100%);
+    color: #fff;
+    padding: 1.2rem 1.5rem 1rem 1.5rem;
+}
+
+#partnerModal .modal-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+#partnerModal .btn-close {
+    filter: invert(1);
+}
+
+#partnerModal .modal-body {
+    padding: 2rem 2.2rem 1.5rem 2.2rem;
+    background: #f7fafd;
+    border-radius: 0 0 18px 18px;
+}
+
+#partnerModal .partner-logo {
+    display: block;
+    margin: 0 auto 1.2rem auto;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(44,62,80,0.10);
+    max-width: 90px;
+    max-height: 90px;
+    background: #fff;
+}
+
+#partnerModal .partner-details-list {
+    margin-bottom: 1.2rem;
+    padding: 0;
+    list-style: none;
+}
+
+#partnerModal .partner-details-list li {
+    margin-bottom: 0.4rem;
+    font-size: 1.08rem;
+    color: #222;
+}
+
+#partnerModal .partner-details-list li strong {
+    color: #0261e0;
+    font-weight: 600;
+    min-width: 120px;
+    display: inline-block;
+}
+
+#partnerModal hr {
+    margin: 1.5rem 0 1.2rem 0;
+    border-top: 1.5px solid #e0e7ef;
+}
+
+#partnerModal h5 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #0261e0;
+    margin-bottom: 1rem;
+    letter-spacing: 0.5px;
+}
+
+/* Partner Modal Post Card Styles */
+.partner-modal-post-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(44,62,80,0.08);
+    margin-bottom: 1.5rem;
+    padding: 1.2rem 1rem;
+    text-align: left;
+    transition: box-shadow 0.2s;
+}
+.partner-modal-post-card:hover {
+    box-shadow: 0 6px 24px rgba(44,62,80,0.16);
+}
+.partner-modal-post-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #0261e0;
+}
+.partner-modal-post-content {
+    font-size: 1rem;
+    color: #444;
+    margin-bottom: 0.7rem;
+}
+.partner-modal-post-media {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+    justify-content: flex-start;
+}
+.partner-modal-post-media img,
+.partner-modal-post-media video {
+    max-width: 180px;
+    max-height: 120px;
+    border-radius: 8px;
+    box-shadow: 0 1px 6px rgba(44,62,80,0.10);
+    object-fit: cover;
+    background: #fff;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+.partner-modal-post-media img:hover,
+.partner-modal-post-media video:hover {
+    transform: scale(1.04);
+    box-shadow: 0 4px 16px rgba(44,62,80,0.18);
+}
+.partner-modal-delete-btn {
+    margin-top: 0.5rem;
+} 

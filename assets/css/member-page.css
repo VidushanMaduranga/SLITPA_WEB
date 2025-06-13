@@ -1,0 +1,254 @@
+/* Base styles (desktop first) */
+body {
+    background-color: #fcfcfc;
+    font-family: 'Montserrat', Arial, sans-serif;
+}
+
+/* Header Section */
+.header-section {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+    background-color: #00000041;
+    box-shadow: 0 2px 5px #0000001a;
+}
+
+.navbar {
+    background-color: transparent;
+    color: #ffffff;
+    padding: 10px;
+}
+
+.navbar-brand,
+.nav-link,
+.navbar-text {
+    color: #ffffff !important;
+}
+
+.nav-link:hover {
+    color: #cccccc !important;
+}
+
+/* Hero Section */
+.hero-section {
+    width: 100%;
+}
+
+.hero {
+    position: relative;
+    width: 100%;
+    margin: 0 auto;
+    overflow: hidden;
+    box-shadow: 0 4px 24px #0002;
+    display: flex;
+    align-items: stretch;
+}
+
+.hero-image-wrap {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    overflow: hidden;
+}
+
+.hero-image {
+    width: 100%;
+    height: 40vh;
+    object-fit: cover;
+    display: block;
+    filter: brightness(0.7) blur(0px);
+}
+
+.hero-text-wrap {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 40vh;
+    padding: 40px 20px;
+    text-align: center;
+    width: 100%;
+}
+
+.hero-title {
+    color: #fff;
+    font-size: 3rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+    text-shadow: 0 2px 16px #000a;
+    margin: 0;
+    text-transform: uppercase;    
+}
+
+
+
+/* Member Registration  */
+.become_a_member {
+  background-color: #f7f9fc;
+  padding: 60px 20px;
+}
+
+#becomeMemberContent {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.registration {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.registration-button {
+  display: inline-block;
+  background-color: #007bff;
+  color: white;
+  text-transform: uppercase;
+  font-weight: bold;
+  padding: 12px 30px;
+  border-radius: 30px;
+  text-decoration: none;
+  width: 70%;
+  transition: background-color 0.3s ease;
+}
+
+.registration-button:hover {
+  background-color: #0056b3;
+}
+
+.registration-text {
+  margin-top: 30px;
+  font-size: 18px;
+  color: #333;
+  font-weight: 600;
+}
+
+/* Member Section */
+.member-wrap{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    padding: 40px 20px;
+}
+.member {
+  background-color: #000;
+  color: #fff;
+  border-radius: 12px;
+  padding: 20px 30px;
+  margin-top: 50px;
+  width: 50%;
+}
+
+.member-left {
+  display: flex;
+  align-items: center;
+}
+
+.member-logo {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+  margin-right: 15px;
+}
+
+.member-title {
+  font-size: 16px;
+  margin: 0;
+  font-weight: 600;
+}
+
+.date {
+  font-size: 14px;
+  color: #ccc;
+  margin: 5px 0 0;
+}
+
+.member-count-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.member-count {
+  font-size: 40px;
+  font-weight: bold;
+  margin: 0;
+}
+
+
+
+
+/* Member Benefits Section Enhancements */
+.member-benefits {
+    /* background: linear-gradient(135deg, #e3f2fd 0%, #f8fafc 100%); */
+    border: 2px solid #b3e5fc00;
+    box-shadow: 0 4px 16px #0d558210;
+    padding: 40px 24px;
+    transition: box-shadow 0.2s;
+
+    h2{
+        font-size: 32px;
+        color: #1565c0;
+        padding-bottom: 40px;
+        text-align: left;
+        font-weight: 600;
+    }
+
+    .section.member-benefits:hover {
+    box-shadow: 0 8px 32px #0d558220;
+}
+
+.section.member-benefits .section-title {
+    font-size: 1.5rem;
+    color: #000000;
+    margin-bottom: 18px;
+    gap: 10px;
+}
+
+.section{
+    border-top: solid 2px;
+    border-color: #04334985;
+    
+    .section-title{
+        .section-number{
+            padding-right: 10px;
+        }
+        padding-top: 24px;
+        font-weight: 600;
+        font-size: 24px;
+        color: #0a0a0a;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+    } .item {
+        font-weight: 600;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 4px #0d558210;
+        transition: background 0.2s;
+        border-radius: 6px;
+    }
+    /* .item:hover {
+    background: #e3f2fd;
+    } */
+}
+
+/* .section.member-benefits  */
+
+/* .section.member-benefits .icon,
+.section.member-benefits .item i {
+    color: #1565c0;
+    font-size: 1.3em;
+    margin-right: 14px;
+} */
+}
+
+
